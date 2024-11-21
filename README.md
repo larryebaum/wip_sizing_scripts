@@ -1,0 +1,2 @@
+## Usage
+This repo contains subdirectories for each Prisma Cloud supported cloud platform (OCI & Alibaba oustanding). Within each subdirectory is a README and a BASH shell script that can be executed from within the CSP console CLI. Download the appropriate file to your workstation and upload it into the console CLI and follow the usage instructions from the README.
