@@ -6,19 +6,42 @@ if ! aws sts get-caller-identity > /dev/null 2>&1; then
     exit 1
 fi
 
-# Check for the organization mode argument
+# Initialize options
 ORG_MODE=false
 DSPM_MODE=false
 
-if [[ "$1" == "--organization" ]]; then
-    ORG_MODE=true
-    echo "Running in organization mode..."
+# Get options
+while getopts ":d:o:" opt; do
+  case ${opt} in
+    d )
+      DSPM_MODE=true
+      ;;
+    o )
+      ORG_MODE=true
+      ;;
+ esac
+done
+
+if [ "$ORG_MODE" == true ]; then
+  echo "Organization mode active"
+fi
+if [ "$DSPM_MODE" == true ]; then
+  echo "DSPM mode active"
 fi
 
-if [[ "$2" == "dspm" ]]; then
-    DSPM_MODE=true
-    echo "Counting additional DSPM resources..."
-fi
+# # Check for the organization mode argument
+# ORG_MODE=false
+# DSPM_MODE=false
+
+# if [[ "$1" == "--organization" ]]; then
+#     ORG_MODE=true
+#     echo "Running in organization mode..."
+# fi
+
+# if [[ "$2" == "dspm" ]]; then
+#     DSPM_MODE=true
+#     echo "Counting additional DSPM resources..."
+# fi
 
 # Initialize counters
 total_ec2_instances=0
