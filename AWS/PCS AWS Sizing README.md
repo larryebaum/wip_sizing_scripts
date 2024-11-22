@@ -1,15 +1,15 @@
 
 ## Usage
 1. Prerequisites  
-	* Install and configure the AWS CLI with appropriate credentials and permissions to assume roles and describe resources.  
-	* `jq` must be installed for JSON parsing
-    * Ensure the script has executable permissions:  
-1. Run the script and if executing against an Organization account, include the flag `--organization` 
-1. Provide the output/screenshot of the script to your Palo Alto Prisma Cloud team members.  
+    * Install and configure the AWS CLI with appropriate credentials and permissions to assume roles and describe resources.  
+    * Ensure the script has executable permissions: `chmod +x pcs_aws_sizing.sh`   
+1. The script by default will count up Cloud Security resources that are counted for licensing/credit counts.
+2. Two flags are available:
+    * `-o` will enable Organization mode and loop through each organization sub-account and sum up totals. 
+    * `-d` will enable DSPM mode and count up resources for DSPM licensing/credit counts. This option can be used alone or in combination with `-o`.
+1. Execute the script: `./pcs_aws_sizing.sh [o|d]`
+2. Provide the output/screenshot of the script to your Palo Alto Prisma Cloud team members.  
 
-`chmod +x pcs_aws_sizing.sh`  
-  
-`./pcs_aws_sizing.sh [--organization]`  
 
 ### What It Does
 1. Uses `aws organizations list-accounts` to retrieve all accounts in the organization.  
