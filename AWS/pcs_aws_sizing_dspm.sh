@@ -27,20 +27,6 @@ if [ "$DSPM_MODE" == true ]; then
   echo "DSPM mode active"
 fi
 
-# # Check for the organization mode argument
-# ORG_MODE=false
-# DSPM_MODE=false
-
-# if [[ "$1" == "--organization" ]]; then
-#     ORG_MODE=true
-#     echo "Running in organization mode..."
-# fi
-
-# if [[ "$2" == "dspm" ]]; then
-#     DSPM_MODE=true
-#     echo "Counting additional DSPM resources..."
-# fi
-
 # Initialize counters
 total_ec2_instances=0
 total_eks_nodes=0
