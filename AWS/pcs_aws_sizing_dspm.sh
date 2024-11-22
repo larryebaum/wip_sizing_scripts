@@ -11,14 +11,11 @@ ORG_MODE=false
 DSPM_MODE=false
 
 # Get options
-while getopts ":d:o:" opt; do
+while getopts ":do" opt; do
   case ${opt} in
-    d)
-      DSPM_MODE=true
-      ;;
-    o)
-      ORG_MODE=true
-      ;;
+    d) DSPM_MODE=true ;;
+    o) ORG_MODE=true ;;
+    *) echo "Invalid option: -${OPTARG}" && exit 1 ;;
  esac
 done
 shift $((OPTIND-1))
