@@ -37,6 +37,95 @@ total_rds=0
 total_dynamodb=0
 total_redshift=0
 
+# Functions
+check_running_databases() {
+    # # Ensure AWS CLI is configured
+    # if ! aws sts get-caller-identity &>/dev/null; then
+    #     echo "Please configure your AWS CLI using 'aws configure' before running this script."
+    #     return 1
+    # fi
+
+    # Required ports for database identification
+    local DATABASE_PORTS=(3306 5432 27017 1433 33060)
+
+    echo "Fetching all running EC2 instances..."
+    local instances=$(aws ec2 describe-instances \
+        --filters "Name=instance-state-name,Values=running" \
+        --query "Reservations[*].Instances[*].{ID:InstanceId,IP:PrivateIpAddress,Name:Tags[?Key=='Name']|[0].Value}" \
+        --output json)
+
+    # Check if any instances were returned
+    if [[ -z "$instances" || "$instances" == "[]" ]]; then
+        echo "No running EC2 instances found."
+        return 0
+    fi
+
+    echo "Found running EC2 instances. Checking each instance for database activity..."
+
+    # Parse instances and check for databases
+    for instance in $(echo "$instances" | jq -c '.[][]'); do
+        local instance_id=$(echo "$instance" | jq -r '.ID')
+        local private_ip=$(echo "$instance" | jq -r '.IP')
+        local instance_name=$(echo "$instance" | jq -r '.Name // "Unnamed Instance"')
+
+        echo "Checking instance: $instance_name (ID: $instance_id, IP: $private_ip)"
+
+        # Fetch security group details
+        local sg_ids=$(aws ec2 describe-instances \
+            --instance-ids "$instance_id" \
+            --query "Reservations[0].Instances[0].SecurityGroups[*].GroupId" \
+            --output text)
+
+        echo "  Security Groups: $sg_ids"
+
+        for sg_id in $sg_ids; do
+            local open_ports=$(aws ec2 describe-security-groups \
+                --group-ids "$sg_id" \
+                --query "SecurityGroups[0].IpPermissions[*].FromPort" \
+                --output text | tr '\t' '\n' | sort -u)
+
+            echo "    Open Ports: $open_ports"
+
+            # Check for database ports
+            for port in "${DATABASE_PORTS[@]}"; do
+                if echo "$open_ports" | grep -q "^$port$"; then
+                    echo "      Database port $port detected in Security Group $sg_id"
+                fi
+            done
+        done
+
+        # Optional: Check for running database processes via Systems Manager
+        if aws ssm describe-instance-information \
+            --query "InstanceInformationList[?InstanceId=='$instance_id']" \
+            --output text &>/dev/null; then
+            echo "  Instance is managed by Systems Manager. Checking for database processes..."
+            local running_processes=$(aws ssm send-command \
+                --instance-ids "$instance_id" \
+                --document-name "AWS-RunShellScript" \
+                --comment "Check for running database processes" \
+                --parameters 'commands=["ps aux | grep -E \"postgres|mongo|mysql|mariadb|sqlserver\" | grep -v grep"]' \
+                --query "Command.CommandId" --output text)
+
+            sleep 2 # Allow time for the command to execute
+            local output=$(aws ssm list-command-invocations \
+                --command-id "$running_processes" \
+                --details --query "CommandInvocations[0].CommandPlugins[0].Output" \
+                --output text)
+
+            if [[ -n "$output" ]]; then
+                echo "  Database processes detected:"
+                echo "$output"
+            else
+                echo "  No database processes detected."
+            fi
+        else
+            echo "  Instance is not managed by Systems Manager. Skipping process check."
+        fi
+    done
+
+    echo "Database scan complete."
+}
+
 # Function to count resources in a single account
 count_resources() {
     local account_id=$1
@@ -68,7 +157,8 @@ count_resources() {
         # Count EKS nodes
         clusters=$(aws eks list-clusters --query "clusters" --output text)
         for cluster in $clusters; do
-            node_count=$(aws eks describe-nodegroup --cluster-name "$cluster" --query "nodegroups[].scalingConfig.desiredSize" --output text | awk '{sum+=$1} END {print sum}')
+            nodeGroupName=$(aws eks list-nodegroups --cluster-name --output text $cluster | awk '{print $2}')
+            node_count=$(aws eks describe-nodegroup --cluster-name "$cluster" --nodegroup-name "$nodeGroupName" --query "nodegroups[].scalingConfig.desiredSize" --output text | awk '{sum+=$1} END {print sum}')
             node_count=${node_count:-0} # Default to 0 if no nodes found
             echo "    EKS cluster '$cluster' nodes: $node_count"
             total_eks_nodes=$((total_eks_nodes + node_count))
@@ -106,6 +196,9 @@ count_resources() {
         redshift_count=$(aws redshift describe-clusters --query "Clusters[*].ClusterIdentifier" --output text | wc -w)
         echo "  Redshift clusters: $redshift_count"
         total_redshift=$((total_redshift + redshift_count))
+    
+    check_running_databases
+
     fi
 
     if [ "$ORG_MODE" == true ]; then
