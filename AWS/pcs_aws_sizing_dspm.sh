@@ -11,11 +11,7 @@ ORG_MODE=false
 DSPM_MODE=false
 
 # Get options
-<<<<<<< HEAD
 while getopts ":d:o:" opt; do
-=======
-while getopts ":do:" opt; do
->>>>>>> 3c72040b01ac3e5e9b0f512d637bd9cfd116a3d1
   case ${opt} in
     d)
       DSPM_MODE=true
