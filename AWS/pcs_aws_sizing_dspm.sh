@@ -11,7 +11,7 @@ ORG_MODE=false
 DSPM_MODE=false
 
 # Get options
-while getopts ":d:o" opt; do
+while getopts ":d:o:" opt; do
   case ${opt} in
     d)
       DSPM_MODE=true
@@ -21,6 +21,7 @@ while getopts ":d:o" opt; do
       ;;
  esac
 done
+shift $((OPTIND-1))
 
 if [ "$ORG_MODE" == true ]; then
   echo "Organization mode active"
@@ -73,9 +74,9 @@ count_resources() {
         export AWS_SESSION_TOKEN=$(echo $creds | jq -r ".SessionToken")
     fi
 
-    echo "Counting resources in account: $account_id"
 
     if [ "$DSPM_MODE" == false ]; then
+        echo "Counting Cloud Security resources in account: $account_id"
         # Count EC2 instances
         ec2_count=$(aws ec2 describe-instances --query "Reservations[*].Instances[*]" --output json | jq 'length')
         echo "  EC2 instances: $ec2_count"
@@ -92,6 +93,7 @@ count_resources() {
     fi
 
     if [ "$DSPM_MODE" == true ]; then
+        echo "Counting DSPM Security resources in account: $account_id"
         # Count S3 buckets
         s3_count=$(aws s3api list-buckets --query "Buckets[*].Name" --output text | wc -w)
         echo "  S3 buckets: $s3_count"
