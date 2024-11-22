@@ -13,7 +13,15 @@
 
 ### What It Does
 1. Uses `aws organizations list-accounts` to retrieve all accounts in the organization.  
-1. Assumes a cros-account role (e.g., OrganizationAccountAccessRole) in each account.  
-1. Counts
+1. Assumes a cross-account role (e.g., OrganizationAccountAccessRole) in each account.  
+1. With no flags selected (Cloud Security mode), counts:
     * EC2 instances using `aws ec2 describe-instances`.  
     * EKS nodes by listing clusters and their node groups with `aws eks describe-nodegroup`.  
+1. With `-d` flag, (DSPM Security mode), counts:
+    * S3 instances using `aws s3api list-buckets`
+    * EFS instances using `aws efs describe-file-systems`
+    * Aurura clusters using `aws rds describe-db-clusters` and filtering on aurura engine
+    * RDS instances using `aws rds describe-db-instances` and filtering on mysql, mariadb, and postgres engines
+    * DynamoDB tables using `aws dynamodb list-tables`
+    * Redshift clusters using `aws redshift describe-clusters`
+      
