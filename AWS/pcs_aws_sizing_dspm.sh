@@ -11,12 +11,12 @@ ORG_MODE=false
 DSPM_MODE=false
 
 # Get options
-while getopts ":d:o:" opt; do
+while getopts ":d:o" opt; do
   case ${opt} in
-    d )
+    d)
       DSPM_MODE=true
       ;;
-    o )
+    o)
       ORG_MODE=true
       ;;
  esac
