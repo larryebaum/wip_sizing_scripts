@@ -157,9 +157,11 @@ count_resources() {
         # Count EKS nodes
         clusters=$(aws eks list-clusters --query "clusters" --output text)
         for cluster in $clusters; do
-            nodeGroupName=$(aws eks list-nodegroups --cluster-name --output text $cluster | awk '{print $2}')
-            node_count=$(aws eks describe-nodegroup --cluster-name "$cluster" --nodegroup-name "$nodeGroupName" --query "nodegroups[].scalingConfig.desiredSize" --output text | awk '{sum+=$1} END {print sum}')
-            node_count=${node_count:-0} # Default to 0 if no nodes found
+            nodeGroupsName=$(aws eks list-nodegroups --cluster-name --output text $cluster | awk '{print $2}')
+            for nodeGroup in $nodeGroupsName; do
+                node_count=$(aws eks describe-nodegroup --cluster-name "$cluster" --nodegroup-name "$nodeGroupsName" --query "nodegroups[].scalingConfig.desiredSize" --output text | awk '{sum+=$1} END {print sum}')
+                node_count=${node_count:-0} # Default to 0 if no nodes found
+            done
             echo "    EKS cluster '$cluster' nodes: $node_count"
             total_eks_nodes=$((total_eks_nodes + node_count))
         done
