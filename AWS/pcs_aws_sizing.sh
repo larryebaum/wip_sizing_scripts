@@ -243,5 +243,3 @@ if [ "$DSPM_MODE" == true ]; then
     echo "Total DynamoDB tables: $total_dynamodb"
     echo "Total Redshift clusters: $total_redshift"
 fi
-
-#end
