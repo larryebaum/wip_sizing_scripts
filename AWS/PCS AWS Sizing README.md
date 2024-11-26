@@ -25,3 +25,7 @@
     * DynamoDB tables using `aws dynamodb list-tables`
     * Redshift clusters using `aws redshift describe-clusters`
       
+### Troubleshooting
+* The error `Cannot execute: required file not found` may result when using a Windows computer to upload the shell script to AWS console, due to the manner in which Windows converts CR/LF. The below two VIM commands can be used to convert CR/LF within the AWS CLI, or alternatively, utilities such as `dos2linux` can be utilized.
+   * `:e ++ff=unix`
+   * `:%s/\r\(\n\)/\1/g`
