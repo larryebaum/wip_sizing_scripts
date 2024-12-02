@@ -8,16 +8,16 @@ function printHelp {
     echo "* Validated to run successfully from within CSP console CLIs"
 
     echo "Available flags:"
-    echo " -d       DSPM mode"
-    echo "          This option will search for and count resources that are specific to data security"
-    echo "          posture management (DSPM) licensing."
-    echo " -h       Display the help info"
-    echo " -o       Organization mode"
-    echo "          This option will fetch all sub-accounts associated with an organization"
-    echo "          and assume the default (or specified) cross account role in order to iterate through and"
-    echo "          scan resources in each sub-account. This is typically run from the admin user in"
-    echo "          the master account."
-    echo " -r       Specify a non default role to assume in combination with organization mode"
+    echo " -d        DSPM mode"
+    echo "           This option will search for and count resources that are specific to data security"
+    echo "           posture management (DSPM) licensing."
+    echo " -h        Display the help info"
+    echo " -o        Organization mode"
+    echo "           This option will fetch all sub-accounts associated with an organization"
+    echo "           and assume the default (or specified) cross account role in order to iterate through and"
+    echo "           scan resources in each sub-account. This is typically run from the admin user in"
+    echo "           the master account."
+    echo " -r <role> Specify a non default role to assume in combination with organization mode"
     exit 1
 }
 
@@ -33,7 +33,7 @@ DSPM_MODE=false
 ROLE="OrganizationAccountAccessRole"
 
 # Get options
-while getopts ":dohr" opt; do
+while getopts ":dohr:" opt; do
   case ${opt} in
     d) DSPM_MODE=true ;;
     h) printHelp ;;
