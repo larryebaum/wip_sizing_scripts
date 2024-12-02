@@ -38,21 +38,15 @@ while getopts ":dohr:" opt; do
     d) DSPM_MODE=true ;;
     h) printHelp ;;
     o) ORG_MODE=true ;;
-    r) ROLE="#OPTARG" ;;
+    r) ROLE="$OPTARG" ;;
     *) echo "Invalid option: -${OPTARG}" && printHelp exit ;;
  esac
 done
 shift $((OPTIND-1))
 
-# if [ -z ${ROLE]; then
-#     echo >&2 "Role option specified but missing required option value"
-#     exit 1
-# fi
-
-echo "Role to assume: $ROLE"
-
 if [ "$ORG_MODE" == true ]; then
   echo "Organization mode active"
+  echo "Role to assume: $ROLE"
 fi
 if [ "$DSPM_MODE" == true ]; then
   echo "DSPM mode active"
