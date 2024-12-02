@@ -8,15 +8,15 @@ For best results, log in to the AWS Console for the master organization account 
     
 ### Execution  
 1. Launch the AWS CloudShell from the top menu bar.  
-2. Upload the sizing script to your CloudShell instance.  
-3. `chmod +x ./pcs_aws_sizing.sh` to update permissions on the sizing script.  
-4. Execute the script `./pcs_aws_sizing.sh [-o|-d]  
+3. Upload the sizing script to your CloudShell instance.  
+4. `chmod +x ./pcs_aws_sizing.sh` to update permissions on the sizing script.  
+5. Execute the script `./pcs_aws_sizing.sh [-d|-o|-r]  
    * The script by default will sum up Cloud Security resources that are counted for licensing/credit counts.  
-   * Two flags are available:  
+   * Optional flags are available:  
       * `-d` will enable DSPM mode and count up resources for DSPM licensing/credit counts. This option can be used alone or in combination with `-o`.
       * `-o` will enable Organization mode and loop through each organization sub-account and sum up totals.  
       * `-r` to specify a non-default role to assume in Organization mode
-5. Provide the output/screenshot of the script to your Palo Alto Prisma Cloud team members.  
+6. Provide the output/screenshot of the script to your Palo Alto Prisma Cloud team members.  
 
 ### What It Does
 1. In Organization mode, the script uses `aws organizations list-accounts` to retrieve all accounts in the organization.  
