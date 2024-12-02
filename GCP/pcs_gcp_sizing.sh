@@ -12,14 +12,22 @@ if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q
     echo "Please authenticate with the gcloud CLI using 'gcloud auth login'."
     exit 1
 fi
+# Attempt to fetch organization ID programatically
+ORG_ID=$(gcloud organizations list --format="value(ID)")
 
-# Ensure the organization ID is set
-if [ -z "$1" ]; then
-    echo "Usage: $0 <organization-id>"
-    exit 1
+if [[ $ORG_ID =~ ^[0-9]{12}$ ]]; then
+    echo "Organization ID: $ORG_ID identified"
+    else
+    echo "Organization ID not determined, reading input value"
+    # Ensure the organization ID is set
+    if [ -z "$1" ]; then
+        echo "Usage: $0 <organization-id>"
+        exit 1
+    fi
+    ORG_ID=$1
 fi
 
-ORG_ID=$1
+#ORG_ID=$1
 echo "Counting Compute Engine instances and GKE nodes in organization: $ORG_ID"
 
 # Initialize counters
@@ -42,11 +50,13 @@ for project in $projects; do
     gcloud config set project "$project" > /dev/null 2>&1
 
     # Count Compute Engine instances
+    # TODO: INSERT LOGIC TO CHECK IF SERVICE IS ENABLED, ELSE SKIP
     compute_count=$(gcloud compute instances list --format="value(name)" | wc -l)
     echo "  Compute Engine instances: $compute_count"
     total_compute_instances=$((total_compute_instances + compute_count))
 
     # Count GKE nodes
+    # TODO: INSERT LOGIC TO CHECK IF SERVICE IS ENABLED, ELSE SKIP
     clusters=$(gcloud container clusters list --format="value(name)")
     for cluster in $clusters; do
         node_count=$(gcloud container clusters describe "$cluster" \
