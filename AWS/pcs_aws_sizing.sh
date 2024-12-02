@@ -1,5 +1,25 @@
 #!/bin/bash
 
+function printHelp {
+    echo ""
+    echo "NOTES:"
+    echo "* Requires AWS CLI v2 to execute"
+    echo "* Requires JQ utility to be installed (TODO: Install JQ from script; exists in AWS)"
+    echo "* Validated to run successfully from within CSP console CLIs"
+
+    echo "Available flags:"
+    echo " -d       Scan DSPM resources"
+    echo "          This option will search for and count resources that are specific to data security"
+    echo "          posture management (DSPM) licensing."
+    echo " -o       Scan an AWS organization"
+    echo "          This option will fetch all sub-accounts associated with an organization"
+    echo "          and assume a cross account role exists in order to iterate through and"
+    echo "          scan each account resources. This is typicall run from the admin user in"
+    echo "          the master account."
+    echo " -h       Displays this help info"
+    exit 1
+}
+
 # Ensure AWS CLI is configured
 if ! aws sts get-caller-identity > /dev/null 2>&1; then
     echo "Please configure your AWS CLI using 'aws configure' before running this script."
@@ -11,11 +31,12 @@ ORG_MODE=false
 DSPM_MODE=false
 
 # Get options
-while getopts ":do" opt; do
+while getopts ":doh" opt; do
   case ${opt} in
     d) DSPM_MODE=true ;;
     o) ORG_MODE=true ;;
-    *) echo "Invalid option: -${OPTARG}" && exit 1 ;;
+    h) printHelp ;;
+    *) echo "Invalid option: -${OPTARG}" && printHelp exit ;;
  esac
 done
 shift $((OPTIND-1))
@@ -150,6 +171,8 @@ count_resources() {
     if [ "$DSPM_MODE" == false ]; then
         echo "Counting Cloud Security resources in account: $account_id"
         # Count EC2 instances
+        # TO DO: Modify to filter on running: per line 53
+        #        --filters "Name=instance-state-name,Values=running" \
         ec2_count=$(aws ec2 describe-instances --query "Reservations[*].Instances[*]" --output json | jq 'length')
         echo "  EC2 instances: $ec2_count"
         total_ec2_instances=$((total_ec2_instances + ec2_count))
