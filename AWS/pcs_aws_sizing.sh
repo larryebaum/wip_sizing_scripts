@@ -30,6 +30,7 @@ fi
 # Initialize options
 ORG_MODE=false
 DSPM_MODE=false
+ROLE="OrganizationAccountAccessRole"
 
 # Get options
 while getopts ":dohr" opt; do
@@ -43,10 +44,12 @@ while getopts ":dohr" opt; do
 done
 shift $((OPTIND-1))
 
-if [ -z ${ROLE ]; then
-    echo >&2 "Missing required option value"
-    exit 1
-fi
+# if [ -z ${ROLE]; then
+#     echo >&2 "Role option specified but missing required option value"
+#     exit 1
+# fi
+
+echo "Role to assume: $ROLE"
 
 if [ "$ORG_MODE" == true ]; then
   echo "Organization mode active"
@@ -160,7 +163,7 @@ count_resources() {
 
     if [ "$ORG_MODE" == true ]; then
         # Assume role in the account (replace "OrganizationAccountAccessRole" with your role name if different)
-        creds=$(aws sts assume-role --role-arn "arn:aws:iam::$account_id:role/OrganizationAccountAccessRole" \
+        creds=$(aws sts assume-role --role-arn "arn:aws:iam::$account_id:role/$ROLE" \
             --role-session-name "OrgSession" --query "Credentials" --output json)
 
         if [ -z "$creds" ]; then
