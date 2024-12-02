@@ -51,16 +51,16 @@ for project in $projects; do
 
     # Count Compute Engine instances
     # TODO: INSERT LOGIC TO CHECK IF SERVICE IS ENABLED, ELSE SKIP
-    compute_count=$(gcloud compute instances list --format="value(name)" | wc -l)
+    compute_count=$(gcloud compute instances list --format="value(name)" --quiet | wc -l)
     echo "  Compute Engine instances: $compute_count"
     total_compute_instances=$((total_compute_instances + compute_count))
 
     # Count GKE nodes
     # TODO: INSERT LOGIC TO CHECK IF SERVICE IS ENABLED, ELSE SKIP
-    clusters=$(gcloud container clusters list --format="value(name)")
+    clusters=$(gcloud container clusters list --format="value(name)" --quiet)
     for cluster in $clusters; do
         node_count=$(gcloud container clusters describe "$cluster" \
-            --format="value(currentNodeCount)" 2>/dev/null || echo 0)
+            --format="value(currentNodeCount)" --quiet 2>/dev/null || echo 0)
         echo "    Cluster '$cluster' has $node_count nodes."
         total_gke_nodes=$((total_gke_nodes + node_count))
     done
