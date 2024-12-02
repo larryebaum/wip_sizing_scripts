@@ -1,11 +1,53 @@
 #!/bin/bash
 
 # Script to fetch GCP inventory for Prisma Cloud sizing.
-# Requirements: az cli, jq, cut, grep
 
 # This script can be run from Azure Cloud Shell.
 # Run ./pcs_azure_sizing.sh -h for help on how to run the script.
-# Or just read the text in showHelp below.
+# Or just read the text in printHelp below.
+
+function printHelp {
+    echo ""
+    echo "NOTES:"
+    echo "* Requires gcloud CLI to execute"
+    echo "* Requires JQ utility to be installed (TODO: Install JQ from script; exists in AWS, GCP)"
+    echo "* Validated to run successfully from within CSP console CLIs"
+
+    echo "Available flags:"
+    echo " -d       Scan DSPM resources"
+    echo "          This option will search for and count resources that are specific to data security"
+    echo "          posture management (DSPM) licensing."
+    echo " -o       Scan the indicated GCP organization ID, by default the organization ID will attempt"
+    echo "          to be retrieved thus the need to provide the ID should not be necessary."
+    echo "          If identified or supplied, this will fetch all projects associated with the organization"
+    echo "          and assume a cross project role exists in order to iterate through and"
+    echo "          scan each project resources. This is typically run from the admin user in"
+    echo "          the organization account."
+    echo " -h       Displays this help info"
+    exit 1
+}
+
+# Initialize options
+ORG_MODE=false
+DSPM_MODE=false
+
+# Get options
+while getopts ":doh" opt; do
+  case ${opt} in
+    d) DSPM_MODE=true ;;
+    o) ORG_MODE=true ;;
+    h) printHelp ;;
+    *) echo "Invalid option: -${OPTARG}" && printHelp exit ;;
+ esac
+done
+shift $((OPTIND-1))
+
+if [ "$ORG_MODE" == true ]; then
+  echo "Organization mode active"
+fi
+if [ "$DSPM_MODE" == true ]; then
+  echo "DSPM mode active"
+fi
 
 # Ensure gcloud CLI is authenticated
 if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q "@"; then
