@@ -8,15 +8,16 @@ function printHelp {
     echo "* Validated to run successfully from within CSP console CLIs"
 
     echo "Available flags:"
-    echo " -d       Scan DSPM resources"
+    echo " -d       DSPM mode"
     echo "          This option will search for and count resources that are specific to data security"
     echo "          posture management (DSPM) licensing."
-    echo " -o       Scan an AWS organization"
+    echo " -h       Display the help info"
+    echo " -o       Organization mode"
     echo "          This option will fetch all sub-accounts associated with an organization"
-    echo "          and assume a cross account role exists in order to iterate through and"
-    echo "          scan each account resources. This is typicall run from the admin user in"
+    echo "          and assume the default (or specified) cross account role in order to iterate through and"
+    echo "          scan resources in each sub-account. This is typically run from the admin user in"
     echo "          the master account."
-    echo " -h       Displays this help info"
+    echo " -r       Specify a non default role to assume in combination with organization mode"
     exit 1
 }
 
@@ -31,15 +32,21 @@ ORG_MODE=false
 DSPM_MODE=false
 
 # Get options
-while getopts ":doh" opt; do
+while getopts ":dohr" opt; do
   case ${opt} in
     d) DSPM_MODE=true ;;
-    o) ORG_MODE=true ;;
     h) printHelp ;;
+    o) ORG_MODE=true ;;
+    r) ROLE="#OPTARG" ;;
     *) echo "Invalid option: -${OPTARG}" && printHelp exit ;;
  esac
 done
 shift $((OPTIND-1))
+
+if [ -z ${ROLE ]; then
+    echo >&2 "Missing required option value"
+    exit 1
+fi
 
 if [ "$ORG_MODE" == true ]; then
   echo "Organization mode active"
