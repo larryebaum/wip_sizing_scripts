@@ -13,9 +13,10 @@ For best results, log in to the AWS Console for the master organization account 
 5. Execute the script `./pcs_aws_sizing.sh [-d|-o|-r]  
    * The script by default will sum up Cloud Security resources that are counted for licensing/credit counts.  
    * Optional flags are available:  
-      * `-d` will enable DSPM mode and count up resources for DSPM licensing/credit counts. This option can be used alone or in combination with `-o`.
-      * `-o` will enable Organization mode and loop through each organization sub-account and sum up totals.  
-      * `-r` to specify a non-default role to assume in Organization mode
+      * `-d` enable DSPM mode and count up resources for DSPM licensing/credit counts. This option can be used alone or in combination with `-o`.
+      * `-h` display help info
+      * `-o` enable Organization mode and loop through each organization sub-account and sum up totals.  
+      * `-r` specify a non-default role to assume in Organization mode
 6. Provide the output/screenshot of the script to your Palo Alto Prisma Cloud team members.  
 
 ### What It Does
