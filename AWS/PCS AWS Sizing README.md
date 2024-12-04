@@ -38,3 +38,8 @@ Alternatively, you can create the OrganizationAccountAccessRole and add the role
 * The error `Cannot execute: required file not found` may result when using a Windows computer to upload the shell script to AWS console, due to the manner in which Windows converts CR/LF. The below two VIM commands can be used to convert CR/LF within the AWS CLI, or alternatively, utilities such as `dos2linux` can be utilized.
    * `:e ++ff=unix`
    * `:%s/\r\(\n\)/\1/g`
+ 
+## TO DO
+*  Add filter to only count compute instances that are active/running
+*  Find method to examine EC2 nodes if unable to connect
+*  Add additional DSPM services (DBaaS, xxx, xxx)
