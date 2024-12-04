@@ -40,6 +40,7 @@ Alternatively, you can create the OrganizationAccountAccessRole and add the role
    * `:%s/\r\(\n\)/\1/g`
  
 ## TO DO
+*  Loop through all regions
 *  Validate filter to only count compute instances that are active/running
 *  Find method to examine EC2 DB size allocation if unable to connect via SSM
    *  Add method to count/display DB size allocation if able to connect via SSM
