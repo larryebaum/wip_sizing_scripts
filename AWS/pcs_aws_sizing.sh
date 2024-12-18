@@ -175,9 +175,7 @@ count_resources() {
     if [ "$DSPM_MODE" == false ]; then
         echo "Counting Cloud Security resources in account: $account_id"
         # Count EC2 instances
-        # TO DO: Modify to filter on running: per line 53
-        #        --filters "Name=instance-state-name,Values=running" \
-        ec2_count=$(aws ec2 describe-instances --query "Reservations[*].Instances[*]" --output json | jq 'length')
+        ec2_count=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=running --query "Reservations[*].Instances[*]" --output json | jq 'length')
         echo "  EC2 instances: $ec2_count"
         total_ec2_instances=$((total_ec2_instances + ec2_count))
 
@@ -247,10 +245,15 @@ if [ "$ORG_MODE" == true ]; then
         exit 0
     fi
 
-    # Loop through each account in the organization
+    # Loop through each account in the organizationtotal_ec2_instances
     for account_id in $accounts; do
         count_resources "$account_id"
     done
+
+    # Sum up all instances across the organization
+    echo "Total EC2 instances across all accounts in AWS Org: $total_ec2_instances"
+    echo "Total EKS nodes across all accounts in AWS Org: $total_nodes"
+
 else
     # Run for the standalone account
     current_account=$(aws sts get-caller-identity --query "Account" --output text)
