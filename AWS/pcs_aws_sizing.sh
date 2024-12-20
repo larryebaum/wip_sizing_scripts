@@ -44,7 +44,7 @@ while getopts ":dhn:or:s" opt; do
     n) REGION="$OPTARG" ;;
     o) ORG_MODE=true ;;
     r) ROLE="$OPTARG" ;;
-    s) STATE="running,stopped"
+    s) STATE="running,stopped" ;;
     *) echo "Invalid option: -${OPTARG}" && printHelp exit ;;
  esac
 done
