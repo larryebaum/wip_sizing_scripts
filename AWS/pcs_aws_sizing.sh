@@ -8,16 +8,17 @@ function printHelp {
     echo "* Validated to run successfully from within CSP console CLIs"
 
     echo "Available flags:"
-    echo " -d        DSPM mode"
-    echo "           This option will search for and count resources that are specific to data security"
-    echo "           posture management (DSPM) licensing."
-    echo " -h        Display the help info"
-    echo " -o        Organization mode"
-    echo "           This option will fetch all sub-accounts associated with an organization"
-    echo "           and assume the default (or specified) cross account role in order to iterate through and"
-    echo "           scan resources in each sub-account. This is typically run from the admin user in"
-    echo "           the master account."
-    echo " -r <role> Specify a non default role to assume in combination with organization mode"
+    echo " -d          DSPM mode"
+    echo "             This option will search for and count resources that are specific to data security"
+    echo "             posture management (DSPM) licensing."
+    echo " -h          Display the help info"
+    echo " -n <region> Single region to scan"
+    echo " -o          Organization mode"
+    echo "             This option will fetch all sub-accounts associated with an organization"
+    echo "             and assume the default (or specified) cross account role in order to iterate through and"
+    echo "             scan resources in each sub-account. This is typically run from the admin user in"
+    echo "             the master account."
+    echo " -r <role>   Specify a non default role to assume in combination with organization mode"
     exit 1
 }
 
@@ -31,18 +32,31 @@ fi
 ORG_MODE=false
 DSPM_MODE=false
 ROLE="OrganizationAccountAccessRole"
+REGION=""
 
 # Get options
-while getopts ":dohr:" opt; do
+while getopts ":dhn:or:" opt; do
   case ${opt} in
     d) DSPM_MODE=true ;;
     h) printHelp ;;
+    n) REGION="$OPTARG" ;;
     o) ORG_MODE=true ;;
     r) ROLE="$OPTARG" ;;
     *) echo "Invalid option: -${OPTARG}" && printHelp exit ;;
  esac
 done
 shift $((OPTIND-1))
+
+# Get active regions
+activeRegions=$(aws ec2 describe-regions --all-regions --query "Regions[].{Name:RegionName}" --output text)
+# Validate region flag
+if [[ "${REGION}" ]]; then
+    if echo $activeRegions | grep -q $REGION; ## FIX THIS AS PARTIAL MATCH WILL PASS
+        then echo "Requested region is valid";
+    else echo "Invalid region requested";
+    exit 1
+    fi 
+fi
 
 if [ "$ORG_MODE" == true ]; then
   echo "Organization mode active"
