@@ -188,10 +188,16 @@ count_resources() {
 
     if [ "$DSPM_MODE" == false ]; then
         echo "Counting Cloud Security resources in account: $account_id"
+       
         # Count EC2 instances
         ec2_count=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query "Reservations[*].Instances[*]" --output json | jq 'length')
+        
         echo "  EC2 instances: $ec2_count"
-        total_ec2_instances=$((total_ec2_instances + ec2_count))
+        if [[ "${REGION}" ]]; then
+            ec2_count=$(aws ec2 describe-instances --region $REGION --filters "Name=instance-state-name,Values=running" --query "Reservations[*].Instances[*]" --output json | jq 'length')
+        else
+            ec2_count=$(aws ec2 describe-regions --query "Regions[].{Name:RegionName}" --output text |xargs -I {} aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query Reservations[*].Instances[*].[InstanceId] --output text --region {} | wc -l)
+        fi
 
         # Count EKS nodes
         clusters=$(aws eks list-clusters --query "clusters" --output text)
