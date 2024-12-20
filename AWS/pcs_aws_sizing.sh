@@ -19,6 +19,7 @@ function printHelp {
     echo "             scan resources in each sub-account. This is typically run from the admin user in"
     echo "             the master account."
     echo " -r <role>   Specify a non default role to assume in combination with organization mode"
+    echo " -s          Include stopped compute instances in addition to running"
     exit 1
 }
 
@@ -33,15 +34,17 @@ ORG_MODE=false
 DSPM_MODE=false
 ROLE="OrganizationAccountAccessRole"
 REGION=""
+STATE="running"
 
 # Get options
-while getopts ":dhn:or:" opt; do
+while getopts ":dhn:or:s" opt; do
   case ${opt} in
     d) DSPM_MODE=true ;;
     h) printHelp ;;
     n) REGION="$OPTARG" ;;
     o) ORG_MODE=true ;;
     r) ROLE="$OPTARG" ;;
+    s) STATE="running,stopped"
     *) echo "Invalid option: -${OPTARG}" && printHelp exit ;;
  esac
 done
@@ -90,12 +93,12 @@ check_running_databases() {
     echo "Fetching all running EC2 instances..."
     if [[ "${REGION}" ]]; then
         local instances=$(aws ec2 describe-instances \
-        --region $REGION --filters "Name=instance-state-name,Values=running" \
+        --region $REGION --filters "Name=instance-state-name,Values=$STATE" \
         --query "Reservations[*].Instances[*].{ID:InstanceId,IP:PrivateIpAddress,Name:Tags[?Key=='Name']|[0].Value}" \
         --output json)  
     else
         local instances=$(aws ec2 describe-instances \
-        --filters "Name=instance-state-name,Values=running" \
+        --filters "Name=instance-state-name,Values=$STATE" \
         --query "Reservations[*].Instances[*].{ID:InstanceId,IP:PrivateIpAddress,Name:Tags[?Key=='Name']|[0].Value}" \
         --output json)    
     fi   
@@ -197,13 +200,13 @@ count_resources() {
         echo "Counting Cloud Security resources in account: $account_id"
        
         # Count EC2 instances
-        ec2_count=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query "Reservations[*].Instances[*]" --output json | jq 'length')
+        ec2_count=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=$STATE" --query "Reservations[*].Instances[*]" --output json | jq 'length')
         
         echo "  EC2 instances: $ec2_count"
         if [[ "${REGION}" ]]; then
-            ec2_count=$(aws ec2 describe-instances --region $REGION --filters "Name=instance-state-name,Values=running" --query "Reservations[*].Instances[*]" --output json | jq 'length')
+            ec2_count=$(aws ec2 describe-instances --region $REGION --filters "Name=instance-state-name,Values=$STATE" --query "Reservations[*].Instances[*]" --output json | jq 'length')
         else
-            ec2_count=$(aws ec2 describe-regions --query "Regions[].{Name:RegionName}" --output text |xargs -I {} aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query Reservations[*].Instances[*].[InstanceId] --output text --region {} | wc -l)
+            ec2_count=$(aws ec2 describe-regions --query "Regions[].{Name:RegionName}" --output text |xargs -I {} aws ec2 describe-instances --filters "Name=instance-state-name,Values=$STATE" --query Reservations[*].Instances[*].[InstanceId] --output text --region {} | wc -l)
         fi
 
         # Count EKS nodes
