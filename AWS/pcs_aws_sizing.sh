@@ -200,7 +200,11 @@ count_resources() {
         fi
 
         # Count EKS nodes
-        clusters=$(aws eks list-clusters --query "clusters" --output text)
+        if [[ "${REGION}" ]]; then
+            clusters=$(aws eks list-clusters --region $region --query "clusters" --output text)
+        else
+            clusters=$(aws eks list-clusters --query "clusters" --output text)
+        fi        
         for cluster in $clusters; do
             node_groups=$(aws eks list-nodegroups --cluster-name "$cluster" --query 'nodegroups' --output text)
             total_nodes=0
