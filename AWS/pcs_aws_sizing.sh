@@ -220,31 +220,57 @@ count_resources() {
     if [ "$DSPM_MODE" == true ]; then
         echo "Counting DSPM Security resources in account: $account_id"
         # Count S3 buckets
-        s3_count=$(aws s3api list-buckets --query "Buckets[*].Name" --output text | wc -w)
+        if [[ "${REGION}" ]]; then
+            s3_count=$(aws s3api list-buckets --region $REGION --query "Buckets[*].Name" --output text | wc -w)
+        else
+            s3_count=$(aws s3api list-buckets --query "Buckets[*].Name" --output text | wc -w)
+        fi   
         echo "  S3 buckets: $s3_count"
         total_s3_buckets=$((total_s3_buckets + s3_count))
 
         # Count EFS file systems
-        efs_count=$(aws efs describe-file-systems --query "FileSystems[*].FileSystemId" --output text | wc -w)
+        if [[ "${REGION}" ]]; then
+            efs_count=$(aws efs describe-file-systems --region $REGION --query "FileSystems[*].FileSystemId" --output text | wc -w)
+        else
+            efs_count=$(aws efs describe-file-systems --query "FileSystems[*].FileSystemId" --output text | wc -w)
+        fi  
         echo "  EFS file systems: $efs_count"
         total_efs=$((total_efs + efs_count))
 
         # Count Aurora clusters
-        aurora_count=$(aws rds describe-db-clusters --query "DBClusters[?Engine=='aurora'].DBClusterIdentifier" --output text | wc -w)
+        if [[ "${REGION}" ]]; then
+            aurora_count=$(aws rds describe-db-clusters --region $REGION --query "DBClusters[?Engine=='aurora'].DBClusterIdentifier" --output text | wc -w)
+        else
+            aurora_count=$(aws rds describe-db-clusters --query "DBClusters[?Engine=='aurora'].DBClusterIdentifier" --output text | wc -w)
+        fi         
         echo "  Aurora clusters: $aurora_count"
         total_aurora=$((total_aurora + aurora_count))
 
         # Count RDS instances
-        rds_count=$(aws rds describe-db-instances --query "DBInstances[?Engine=='mysql' || Engine=='mariadb' || Engine=='postgres'].DBInstanceIdentifier" --output text | wc -w)
+        if [[ "${REGION}" ]]; then
+            rds_count=$(aws rds describe-db-instances --region $REGION --query "DBInstances[?Engine=='mysql' || Engine=='mariadb' || Engine=='postgres'].DBInstanceIdentifier" --output text | wc -w)
+        else
+            rds_count=$(aws rds describe-db-instances --query "DBInstances[?Engine=='mysql' || Engine=='mariadb' || Engine=='postgres'].DBInstanceIdentifier" --output text | wc -w)
+        fi   
         echo "  RDS instances (MySQL, MariaDB, PostgreSQL): $rds_count"
         total_rds=$((total_rds + rds_count))
 
         # Count DynamoDB tables
+        if [[ "${REGION}" ]]; then
+            dynamodb_count=$(aws dynamodb list-tables --region $REGION --query "TableNames" --output text | wc -w)
+        else
+            dynamodb_count=$(aws dynamodb list-tables --query "TableNames" --output text | wc -w)
+        fi 
         dynamodb_count=$(aws dynamodb list-tables --query "TableNames" --output text | wc -w)
         echo "  DynamoDB tables: $dynamodb_count"
         total_dynamodb=$((total_dynamodb + dynamodb_count))
 
         # Count Redshift clusters
+        if [[ "${REGION}" ]]; then
+            redshift_count=$(aws redshift describe-clusters --region $REGION --query "Clusters[*].ClusterIdentifier" --output text | wc -w)
+        else
+            redshift_count=$(aws redshift describe-clusters --query "Clusters[*].ClusterIdentifier" --output text | wc -w)
+        fi 
         redshift_count=$(aws redshift describe-clusters --query "Clusters[*].ClusterIdentifier" --output text | wc -w)
         echo "  Redshift clusters: $redshift_count"
         total_redshift=$((total_redshift + redshift_count))
