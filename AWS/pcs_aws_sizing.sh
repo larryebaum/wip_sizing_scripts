@@ -175,9 +175,7 @@ count_resources() {
     if [ "$DSPM_MODE" == false ]; then
         echo "Counting Cloud Security resources in account: $account_id"
         # Count EC2 instances
-        # TO DO: Modify to filter on running: per line 53
-        #        --filters "Name=instance-state-name,Values=running" \
-        ec2_count=$(aws ec2 describe-instances --query "Reservations[*].Instances[*]" --output json | jq 'length')
+        ec2_count=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query "Reservations[*].Instances[*]" --output json | jq 'length')
         echo "  EC2 instances: $ec2_count"
         total_ec2_instances=$((total_ec2_instances + ec2_count))
 
