@@ -200,14 +200,12 @@ count_resources() {
         echo "Counting Cloud Security resources in account: $account_id"
        
         # Count EC2 instances
-        ec2_count=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=$STATE" --query "Reservations[*].Instances[*]" --output json | jq 'length')
-        
-        echo "  EC2 instances: $ec2_count"
         if [[ "${REGION}" ]]; then
             ec2_count=$(aws ec2 describe-instances --region $REGION --filters "Name=instance-state-name,Values=$STATE" --query "Reservations[*].Instances[*]" --output json | jq 'length')
         else
             ec2_count=$(aws ec2 describe-regions --query "Regions[].{Name:RegionName}" --output text |xargs -I {} aws ec2 describe-instances --filters "Name=instance-state-name,Values=$STATE" --query Reservations[*].Instances[*].[InstanceId] --output text --region {} | wc -l)
         fi
+        echo "  EC2 instances: $ec2_count"
 
         # Count EKS nodes
         if [[ "${REGION}" ]]; then
