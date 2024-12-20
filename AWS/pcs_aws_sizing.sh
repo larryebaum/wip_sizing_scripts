@@ -88,10 +88,17 @@ check_running_databases() {
     local DATABASE_PORTS=(3306 5432 27017 1433 33060)
 
     echo "Fetching all running EC2 instances..."
-    local instances=$(aws ec2 describe-instances \
+    if [[ "${REGION}" ]]; then
+        local instances=$(aws ec2 describe-instances \
+        --region $REGION --filters "Name=instance-state-name,Values=running" \
+        --query "Reservations[*].Instances[*].{ID:InstanceId,IP:PrivateIpAddress,Name:Tags[?Key=='Name']|[0].Value}" \
+        --output json)  
+    else
+        local instances=$(aws ec2 describe-instances \
         --filters "Name=instance-state-name,Values=running" \
         --query "Reservations[*].Instances[*].{ID:InstanceId,IP:PrivateIpAddress,Name:Tags[?Key=='Name']|[0].Value}" \
-        --output json)
+        --output json)    
+    fi   
 
     # Check if any instances were returned
     if [[ -z "$instances" || "$instances" == "[]" ]]; then
