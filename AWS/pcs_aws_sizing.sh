@@ -23,6 +23,13 @@ function printHelp {
     exit 1
 }
 
+echo ''
+echo '  ___     _                  ___ _             _  '
+echo ' | _ \_ _(_)____ __  __ _   / __| |___ _  _ __| | '
+echo ' |  _/ '\''_| (_-< '\''  \/ _` | | (__| / _ \ || / _` | '
+echo ' |_| |_| |_/__/_|_|_\__,_|  \___|_\___/\_,_\__,_| '
+echo ''                                                 
+
 # Ensure AWS CLI is configured
 if ! aws sts get-caller-identity > /dev/null 2>&1; then
     echo "Please configure your AWS CLI using 'aws configure' before running this script."
@@ -206,6 +213,7 @@ count_resources() {
             ec2_count=$(aws ec2 describe-regions --query "Regions[].{Name:RegionName}" --output text |xargs -I {} aws ec2 describe-instances --filters "Name=instance-state-name,Values=$STATE" --query Reservations[*].Instances[*].[InstanceId] --output text --region {} | wc -l)
         fi
         echo "  EC2 instances: $ec2_count"
+        total_ec2_instances=$((total_ec2_instances + ec2_count))
 
         # Count EKS nodes
         if [[ "${REGION}" ]]; then
@@ -219,8 +227,8 @@ count_resources() {
             for node_group in $node_groups; do
                 node_count=$(aws eks describe-nodegroup --cluster-name "$cluster" --nodegroup-name "$node_group" --query "nodegroup.scalingConfig.desiredSize" --output text)
                 total_nodes=$((total_nodes + node_count))
-                echo "    EKS cluster '$cluster' nodegroup $node_group nodes: $node_count"
-                total_eks_nodes=$((total_eks_nodes + total_nodes))
+                echo "  EKS cluster '$cluster' nodegroup $node_group nodes: $node_count"
+                total_eks_nodes=$((total_eks_nodes + node_count))
             done
         done
     fi
@@ -313,16 +321,20 @@ else
     count_resources "$current_account"
 fi
 
-if [ "$DSPM_MODE" == true ]; then
-    echo "Total EC2 instances: $total_ec2_instances"
-    echo "Total EKS nodes: $total_eks_nodes"
+if [ "$ORG_MODE" == true ]; then
+    echo ""
+    echo "** TOTAL COUNTS **"
+    echo "  EC2 instances: $total_ec2_instances"
+    echo "  EKS nodes: $total_eks_nodes"
 fi
 
 if [ "$DSPM_MODE" == true ]; then
-    echo "Total S3 buckets: $total_s3_buckets"
-    echo "Total EFS file systems: $total_efs"
-    echo "Total Aurora clusters: $total_aurora"
-    echo "Total RDS instances: $total_rds"
-    echo "Total DynamoDB tables: $total_dynamodb"
-    echo "Total Redshift clusters: $total_redshift"
+    echo ""
+    echo "** TOTAL DSPM COUNTS **"
+    echo "  S3 buckets: $total_s3_buckets"
+    echo "  EFS file systems: $total_efs"
+    echo "  Aurora clusters: $total_aurora"
+    echo "  RDS instances: $total_rds"
+    echo "  DynamoDB tables: $total_dynamodb"
+    echo "  Redshift clusters: $total_redshift"
 fi
