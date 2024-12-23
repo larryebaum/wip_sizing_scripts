@@ -111,6 +111,8 @@ check_running_databases() {
     # fi
 
     # Required ports for database identification
+    __startspin
+
     local DATABASE_PORTS=(3306 5432 27017 1433 33060)
 
     echo "Fetching all running EC2 instances..."
@@ -196,6 +198,8 @@ check_running_databases() {
     done
 
     echo "Database scan complete."
+
+__stopspin
 }
 
 # Function to count resources in a single account
