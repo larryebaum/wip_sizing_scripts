@@ -23,6 +23,22 @@ function printHelp {
     exit 1
 }
 
+spinpid=
+function __startspin {
+	# start the spinner
+	set +m
+	{ while : ; do for X in '  •     ' '   •    ' '    •   ' '     •  ' '      • ' '     •  ' '    •   ' '   •    ' '  •     ' ' •      ' ; do echo -en "\b\b\b\b\b\b\b\b$X" ; sleep 0.1 ; done ; done & } 2>/dev/null
+	spinpid=$!
+}
+
+function __stopspin {
+	# stop the spinner
+	{ kill -9 $spinpid && wait; } 2>/dev/null
+	set -m
+	echo -en "\033[2K\r"
+}
+
+
 echo ''
 echo '  ___     _                  ___ _             _  '
 echo ' | _ \_ _(_)____ __  __ _   / __| |___ _  _ __| | '
@@ -184,6 +200,8 @@ check_running_databases() {
 
 # Function to count resources in a single account
 count_resources() {
+    __startspin
+    
     local account_id=$1
 
     if [ "$ORG_MODE" == true ]; then
@@ -299,6 +317,8 @@ count_resources() {
         # Unset temporary credentials
         unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
     fi
+
+    __stopspin
 }
 
 # Main logic
