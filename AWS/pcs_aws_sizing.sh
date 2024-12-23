@@ -321,14 +321,14 @@ else
     count_resources "$current_account"
 fi
 
-if (( "$ORG_MODE" == true && "$DSPM_MODE" == false )); then
+if [ "$ORG_MODE" == true ] && [ "$DSPM_MODE" == false ]; then
     echo ""
     echo "** TOTAL COUNTS **"
     echo "  EC2 instances: $total_ec2_instances"
     echo "  EKS nodes: $total_eks_nodes"
 fi
 
-if (( "$ORG_MODE" == true && "$DSPM_MODE" == true )); then
+if [ "$ORG_MODE" == true ] && [ "$DSPM_MODE" == true ]; then
     echo ""
     echo "** TOTAL DSPM COUNTS **"
     echo "  S3 buckets: $total_s3_buckets"
