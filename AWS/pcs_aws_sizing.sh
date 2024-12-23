@@ -328,7 +328,7 @@ if (( "$ORG_MODE" == true && "$DSPM_MODE" == false )); then
     echo "  EKS nodes: $total_eks_nodes"
 fi
 
-if (( "$DSPM_MODE" == true )); then
+if (( "$ORG_MODE" == true && "$DSPM_MODE" == true )); then
     echo ""
     echo "** TOTAL DSPM COUNTS **"
     echo "  S3 buckets: $total_s3_buckets"
