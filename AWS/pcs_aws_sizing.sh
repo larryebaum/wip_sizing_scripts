@@ -8,6 +8,7 @@ function printHelp {
     echo "* Validated to run successfully from within CSP console CLIs"
 
     echo "Available flags:"
+    echo " -c          Connect via SSM to EC2 instances running DBs"
     echo " -d          DSPM mode"
     echo "             This option will search for and count resources that are specific to data security"
     echo "             posture management (DSPM) licensing."
@@ -60,8 +61,9 @@ REGION=""
 STATE="running"
 
 # Get options
-while getopts ":dhn:or:s" opt; do
+while getopts ":cdhn:or:s" opt; do
   case ${opt} in
+    c) SSM_MODE=true ;;
     d) DSPM_MODE=true ;;
     h) printHelp ;;
     n) REGION="$OPTARG" ;;
@@ -101,6 +103,7 @@ total_aurora=0
 total_rds=0
 total_dynamodb=0
 total_redshift=0
+total_ec2_dbs=0
 
 # Functions
 check_running_databases() {
@@ -188,7 +191,9 @@ check_running_databases() {
 
             if [[ -n "$output" ]]; then
                 echo "  Database processes detected:"
-                echo "$output"
+                echo "  $output"
+		echo "  Total EC2 DBs incremented"
+  		total_ec2_dbs=$((total_ec2_dbs + 1))
             else
                 echo "  No database processes detected."
             fi
@@ -199,12 +204,12 @@ check_running_databases() {
 
     echo "Database scan complete."
 
-__stopspin
+#__stopspin
 }
 
 # Function to count resources in a single account
 count_resources() {
-    __startspin
+#    __startspin
     
     local account_id=$1
 
@@ -312,9 +317,11 @@ count_resources() {
         redshift_count=$(aws redshift describe-clusters --query "Clusters[*].ClusterIdentifier" --output text | wc -w)
         echo "  Redshift clusters: $redshift_count"
         total_redshift=$((total_redshift + redshift_count))
+ 
+   	if [ "$SSM_MODE" == true ]; then
+    	check_running_databases
+    	fi
     
-    check_running_databases
-
     fi
 
     if [ "$ORG_MODE" == true ]; then
@@ -322,7 +329,7 @@ count_resources() {
         unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
     fi
 
-    __stopspin
+#    __stopspin
 }
 
 # Main logic
@@ -361,4 +368,5 @@ if [ "$ORG_MODE" == true ] && [ "$DSPM_MODE" == true ]; then
     echo "  RDS instances: $total_rds"
     echo "  DynamoDB tables: $total_dynamodb"
     echo "  Redshift clusters: $total_redshift"
+    echo "  EC2 DBs: $total_ec2_dbs"
 fi
