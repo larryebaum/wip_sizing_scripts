@@ -15,8 +15,10 @@ For best results, log in to the AWS Console for the master organization account 
    * Optional flags are available:  
       * `-d` enable DSPM mode and count up resources for DSPM licensing/credit counts. This option can be used alone or in combination with `-o`.
       * `-h` display help info
+      * `-n <region>` Single region to scan
       * `-o` enable Organization mode and loop through each organization sub-account and sum up totals.  
       * `-r` specify a non-default role to assume in Organization mode
+      * `-s` include stopped instances in addition to running instances
 6. Provide the output/screenshot of the script to your Palo Alto Prisma Cloud team members.  
 
 ### What It Does
