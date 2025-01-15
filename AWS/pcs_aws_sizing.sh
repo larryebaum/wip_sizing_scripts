@@ -103,7 +103,8 @@ total_aurora=0
 total_rds=0
 total_dynamodb=0
 total_redshift=0
-total_ec2_dbs=0
+total_ec2_db=0
+ec2_db_count=0
 
 # Functions
 check_running_databases() {
@@ -137,7 +138,7 @@ check_running_databases() {
         return 0
     fi
 
-    echo "Found running EC2 instances. Checking each instance for database activity..."
+    echo "  Found running EC2 instances. Checking each instance for database activity..."
 
     # Parse instances and check for databases
     for instance in $(echo "$instances" | jq -c '.[][]'); do
@@ -145,7 +146,7 @@ check_running_databases() {
         local private_ip=$(echo "$instance" | jq -r '.IP')
         local instance_name=$(echo "$instance" | jq -r '.Name // "Unnamed Instance"')
 
-        echo "Checking instance: $instance_name (ID: $instance_id, IP: $private_ip)"
+        echo "  Checking instance: $instance_name (ID: $instance_id, IP: $private_ip)"
 
         # Fetch security group details
         local sg_ids=$(aws ec2 describe-instances \
@@ -153,7 +154,7 @@ check_running_databases() {
             --query "Reservations[0].Instances[0].SecurityGroups[*].GroupId" \
             --output text)
 
-        echo "  Security Groups: $sg_ids"
+        echo "    Security Groups: $sg_ids"
 
         for sg_id in $sg_ids; do
             local open_ports=$(aws ec2 describe-security-groups \
@@ -161,7 +162,7 @@ check_running_databases() {
                 --query "SecurityGroups[0].IpPermissions[*].FromPort" \
                 --output text | tr '\t' ',' )
 
-            echo "    Open Ports: $open_ports"
+            echo "      Open Ports: $open_ports"
 
             # Check for database ports
             for port in "${DATABASE_PORTS[@]}"; do
@@ -175,7 +176,7 @@ check_running_databases() {
         if aws ssm describe-instance-information \
             --query "InstanceInformationList[?InstanceId=='$instance_id']" \
             --output text &>/dev/null; then
-            echo "  Instance is managed by Systems Manager. Checking for database processes..."
+            echo "    Instance is managed by Systems Manager. Checking for database processes..."
             local running_processes=$(aws ssm send-command \
                 --instance-ids "$instance_id" \
                 --document-name "AWS-RunShellScript" \
@@ -190,19 +191,21 @@ check_running_databases() {
                 --output text)
 
             if [[ -n "$output" ]]; then
-                echo "  Database processes detected:"
-                echo "  $output"
-		echo "  Total EC2 DBs incremented"
-  		total_ec2_dbs=$((total_ec2_dbs + 1))
+                echo "    Database processes detected:"
+                echo "    $output"
+		echo "    Total EC2 DBs incremented"
+  		ec2_db_count=$((ec2_db_count + 1))
             else
-                echo "  No database processes detected."
+                echo "    No database processes detected."
             fi
         else
-            echo "  Instance is not managed by Systems Manager. Skipping process check."
+            echo "    Instance is not managed by Systems Manager. Skipping process check."
         fi
     done
 
-    echo "Database scan complete."
+    echo "  Database scan complete."
+    echo "  EC2 DB instances: $(ec2_db_count)"
+    total_ec2_db=$((total_ec2_db + ec2_db_count))
 
 #__stopspin
 }
@@ -368,5 +371,5 @@ if [ "$ORG_MODE" == true ] && [ "$DSPM_MODE" == true ]; then
     echo "  RDS instances: $total_rds"
     echo "  DynamoDB tables: $total_dynamodb"
     echo "  Redshift clusters: $total_redshift"
-    echo "  EC2 DBs: $total_ec2_dbs"
+    echo "  EC2 DBs: $total_ec2_db"
 fi
