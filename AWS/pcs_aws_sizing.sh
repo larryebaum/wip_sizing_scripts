@@ -114,7 +114,7 @@ check_running_databases() {
     # fi
 
     # Required ports for database identification
-    __startspin
+#    __startspin
 
     local DATABASE_PORTS=(3306 5432 27017 1433 33060)
 
