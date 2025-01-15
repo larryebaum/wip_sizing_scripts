@@ -8,7 +8,7 @@ function printHelp {
     echo "* Validated to run successfully from within CSP console CLIs"
 
     echo "Available flags:"
-    echo " -c          Connect via SSM to EC2 instances running DBs"
+    echo " -c          Connect via SSM to EC2 instances running DBs in combination with DSPM mode"
     echo " -d          DSPM mode"
     echo "             This option will search for and count resources that are specific to data security"
     echo "             posture management (DSPM) licensing."
@@ -244,7 +244,7 @@ count_resources() {
 
         # Count EKS nodes
         if [[ "${REGION}" ]]; then
-            clusters=$(aws eks list-clusters --region $region --query "clusters" --output text)
+            clusters=$(aws eks list-clusters --region $REGION --query "clusters" --output text)
         else
             clusters=$(aws eks list-clusters --query "clusters" --output text)
         fi        
