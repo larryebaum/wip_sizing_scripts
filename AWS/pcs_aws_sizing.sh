@@ -159,7 +159,7 @@ check_running_databases() {
             local open_ports=$(aws ec2 describe-security-groups \
                 --group-ids "$sg_id" \
                 --query "SecurityGroups[0].IpPermissions[*].FromPort" \
-                --output text | tr '\t' '\n' | sort -u)
+                --output text | tr '\t' ',' )
 
             echo "    Open Ports: $open_ports"
 
