@@ -18,7 +18,7 @@ For best results, log in to the AWS Console for the master organization account 
       * `-h` display help info  
       * `-n <region>` specify single region to scan  
       * `-o` enable organization mode and loop through each organization sub-account and sum up totals  
-      * `-r` specify a non-default role to assume in Organization mode  
+      * `-r <role>` specify a non-default role to assume in Organization mode  
       * `-s` include stopped instances in addition to running instances  
 6. Provide the output/screenshot of the script to your Palo Alto Prisma Cloud team members.  
 
