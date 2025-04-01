@@ -93,73 +93,66 @@ echo "Counting Compute Engine instances and GKE nodes in organization: $ORG_ID"
 total_compute_instances=0
 total_gke_nodes=0
 
-# Get the list of projects in the organization
-projects=$(gcloud projects list --filter="parent.id=$ORG_ID" --format="value(projectId)")
-check_error $? "Failed to list projects for organization $ORG_ID. Ensure you have 'resourcemanager.projects.list' permission."
+# --- Optimized Instance Counting ---
+echo "Counting Compute Engine instances across organization $ORG_ID using Cloud Asset Inventory..."
+# Use gcloud asset search to find all instances and count them
+# Requires Cloud Asset API enabled (cloudasset.googleapis.com) and roles/cloudasset.viewer permission at the org level
+instance_list=$(gcloud asset search-all-resources --scope=organizations/$ORG_ID --asset-types='compute.googleapis.com/Instance' --format='value(name)' --quiet)
+check_error $? "Failed to search for Compute Engine instances using Cloud Asset Inventory. Ensure API is enabled and permissions are set."
 
-if [ -z "$projects" ]; then
-    echo "No active projects found in organization $ORG_ID."
-    exit 0
+if [ -n "$instance_list" ]; then
+    total_compute_instances=$(echo "$instance_list" | wc -l)
+else
+    total_compute_instances=0
 fi
+echo "  Total Compute Engine instances found: $total_compute_instances"
 
-# Loop through each project
-for project in $projects; do
-    echo "Processing project: $project"
+# --- Optimized GKE Node Counting ---
+echo "Counting GKE nodes across organization $ORG_ID using Cloud Asset Inventory..."
+# 1. Find all GKE clusters in the organization
+cluster_list=$(gcloud asset search-all-resources --scope=organizations/$ORG_ID --asset-types='container.googleapis.com/Cluster' --format='value(name)' --quiet)
+check_error $? "Failed to search for GKE clusters using Cloud Asset Inventory. Ensure API is enabled and permissions are set."
 
-    # Set the current project - capture stderr to suppress potential permission errors if already set
-    gcloud config set project "$project" > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
-        echo "  Warning: Failed to set project context to '$project'. Skipping project."
-        continue
-    fi
+if [ -z "$cluster_list" ]; then
+    echo "  No GKE clusters found in organization $ORG_ID."
+else
+    echo "  Found GKE clusters. Describing each to get node counts..."
+    total_gke_nodes=0
+    # 2. Iterate through clusters and get node counts
+    # Cluster name format: //container.googleapis.com/projects/PROJECT_ID/locations/LOCATION/clusters/CLUSTER_NAME
+    # We need PROJECT_ID, LOCATION, and CLUSTER_NAME for the describe command
+    echo "$cluster_list" | while IFS= read -r cluster_full_name; do
+        # Extract components using parameter expansion or awk/sed
+        # Example using parameter expansion (might need refinement based on exact format)
+        cluster_path=${cluster_full_name#*//} # Remove //container.googleapis.com/
+        project_id=$(echo "$cluster_path" | cut -d'/' -f2)
+        location=$(echo "$cluster_path" | cut -d'/' -f4)
+        cluster_name=$(echo "$cluster_path" | cut -d'/' -f6)
 
-    # Count Compute Engine instances
-    echo "  Checking Compute Engine API status..."
-    # Check if Compute Engine API is enabled - capture stderr
-    gcloud services list --enabled --filter="NAME:compute.googleapis.com" --format="value(NAME)" --quiet 2>/dev/null | grep -q "compute.googleapis.com"
-    if [ $? -eq 0 ]; then
-        echo "  Compute Engine API enabled. Counting instances..."
-        # Use --format=json and jq for potentially more robust counting than wc -l
-        compute_count=$(gcloud compute instances list --format=json --quiet | jq 'length')
-        if [ $? -ne 0 ]; then
-             echo "    Warning: Failed to list Compute Engine instances for project '$project'. Setting count to 0 for this project."
-             compute_count=0
+        if [ -z "$project_id" ] || [ -z "$location" ] || [ -z "$cluster_name" ]; then
+             echo "    Warning: Could not parse cluster details from '$cluster_full_name'. Skipping."
+             continue
         fi
-        echo "    Compute Engine instances: $compute_count"
-        total_compute_instances=$((total_compute_instances + compute_count))
-    else
-        echo "  Compute Engine API not enabled or accessible in project '$project'. Skipping instance count."
-    fi
 
-    # Count GKE nodes
-    echo "  Checking Kubernetes Engine API status..."
-    # Check if Kubernetes Engine API is enabled - capture stderr
-    gcloud services list --enabled --filter="NAME:container.googleapis.com" --format="value(NAME)" --quiet 2>/dev/null | grep -q "container.googleapis.com"
-     if [ $? -eq 0 ]; then
-        echo "  Kubernetes Engine API enabled. Counting nodes..."
-        clusters=$(gcloud container clusters list --format="value(name)" --quiet)
+        echo "    Describing cluster '$cluster_name' in project '$project_id' location '$location'..."
+        # Set project context for the describe command - suppress stderr
+        gcloud config set project "$project_id" > /dev/null 2>&1
         if [ $? -ne 0 ]; then
-            echo "    Warning: Failed to list GKE clusters for project '$project'. Skipping node count for this project."
-        else
-            if [ -z "$clusters" ]; then
-                echo "    No GKE clusters found in project '$project'."
-            else
-                 for cluster in $clusters; do
-                    # Attempt to get node count, default to 0 on error
-                    node_count=$(gcloud container clusters describe "$cluster" --format="value(currentNodeCount)" --quiet 2>/dev/null)
-                    if [ $? -ne 0 ] || ! [[ "$node_count" =~ ^[0-9]+$ ]]; then
-                         echo "      Warning: Failed to get node count for cluster '$cluster' in project '$project'. Assuming 0 nodes."
-                         node_count=0
-                    fi
-                    echo "      Cluster '$cluster' has $node_count nodes."
-                    total_gke_nodes=$((total_gke_nodes + node_count))
-                done
-            fi
+            echo "      Warning: Failed to set project context to '$project_id' for describing cluster '$cluster_name'. Skipping cluster."
+            continue
         fi
-    else
-        echo "  Kubernetes Engine API not enabled or accessible in project '$project'. Skipping node count."
+
+        # Attempt to get node count, default to 0 on error - suppress stderr
+        node_count=$(gcloud container clusters describe "$cluster_name" --location "$location" --format="value(currentNodeCount)" --quiet 2>/dev/null)
+        if [ $? -ne 0 ] || ! [[ "$node_count" =~ ^[0-9]+$ ]]; then
+             echo "      Warning: Failed to get node count for cluster '$cluster_name'. Assuming 0 nodes."
+             node_count=0
+        fi
+        echo "      Cluster '$cluster_name' has $node_count nodes."
+        total_gke_nodes=$((total_gke_nodes + node_count))
     done
-done
+fi
+echo "  Total GKE nodes found: $total_gke_nodes"
 
 echo "##########################################"
 echo "Prisma Cloud GCP inventory collection complete."

@@ -6,14 +6,6 @@ if ! command -v jq &> /dev/null; then
     echo "(e.g., 'sudo apt-get install jq' or 'sudo yum install jq' or 'brew install jq')"
     exit 1
 fi
-
-function printHelp {
-    echo ""
-    echo "NOTES:"
-    echo "* Requires AWS CLI v2 to execute"
-    echo "* Requires JQ utility to be installed (TODO: Install JQ from script; exists in AWS)"
-    echo "* Validated to run successfully from within CSP console CLIs"
-
 # Function to handle errors
 function check_error {
     local exit_code=$1
@@ -27,6 +19,14 @@ function check_error {
         exit $exit_code
     fi
 }
+
+
+function printHelp {
+    echo ""
+    echo "NOTES:"
+    echo "* Requires AWS CLI v2 to execute"
+    echo "* Requires JQ utility to be installed (TODO: Install JQ from script; exists in AWS)"
+    echo "* Validated to run successfully from within CSP console CLIs"
 
     echo "Available flags:"
     echo " -c          Connect via SSM to EC2 instances running DBs in combination with DSPM mode"
@@ -95,8 +95,17 @@ done
 shift $((OPTIND-1))
 
 # Get active regions
-activeRegions=$(aws ec2 describe-regions --all-regions --query "Regions[].{Name:RegionName}" --output text)
-check_error $? "Failed to describe AWS regions."
+# Get enabled regions for the current account context
+echo "Fetching enabled regions for the account..."
+activeRegions=$(aws account list-regions --region-opt-status-contains ENABLED ENABLED_BY_DEFAULT --query "Regions[].RegionName" --output text)
+check_error $? "Failed to list enabled AWS regions. Ensure 'account:ListRegions' permission is granted."
+
+if [ -z "$activeRegions" ]; then
+    echo "Error: Could not retrieve list of enabled regions."
+    exit 1
+fi
+echo "Enabled regions found: $activeRegions"
+
 # Validate region flag
 if [[ "${REGION}" ]]; then
     # Use grep -w for whole word match to avoid partial matches (e.g., "us-east" matching "us-east-1")
@@ -314,9 +323,6 @@ count_resources() {
                        echo "    Region $r: $count_in_region instances"
                     fi
                     ec2_count=$((ec2_count + count_in_region))
-                else
-                    # Log a warning but continue; region might be disabled or inaccessible
-                    echo "    Warning: Could not accurately count EC2 instances in region $r for account $account_id. Skipping region."
                 fi
             done
         fi
