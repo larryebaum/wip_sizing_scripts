@@ -1,67 +1,75 @@
 #!/bin/bash
 
-# Script to fetch Azure inventory for Prisma Cloud sizing.
-# Requirements: az cli, jq, cut, grep
+# Script to fetch Azure inventory for Prisma Cloud sizing using Azure Resource Graph.
+# Requirements: az cli (with graph extension potentially needed, though often built-in now)
+# Permissions: Requires Azure Resource Graph read permissions across target subscriptions.
 
-# This script can be run from Azure Cloud Shell.
-# Run ./pcs_azure_sizing.sh -h for help on how to run the script.
-# Or just read the text in showHelp below.
+# Function to handle errors
+function check_error {
+    local exit_code=$1
+    local message=$2
+    if [ $exit_code -ne 0 ]; then
+        echo "Error: $message (Exit Code: $exit_code)"
+        exit $exit_code
+    fi
+}
 
 # Ensure Azure CLI is logged in
-if ! az account show > /dev/null 2>&1; then
-    echo "Please log in to Azure CLI using 'az login' before running this script."
-    exit 1
-fi
+az account show > /dev/null 2>&1
+check_error $? "Azure CLI not logged in. Please run 'az login'."
 
-echo "Counting VM instances across all subscriptions in the tenant..."
+echo "Counting resources across accessible subscriptions using Azure Resource Graph..."
 
-# Initialize a total count
+# Initialize counts
 total_vm_count=0
 total_node_count=0
 
-# Get a list of all subscription IDs in the tenant
-subscriptions=$(az account list --query "[].id" -o tsv)
+# --- Count VMs using Azure Resource Graph ---
+echo "Querying Azure Resource Graph for VM count..."
+# Query for all VMs across all accessible subscriptions
+vm_query="Resources | where type =~ 'microsoft.compute/virtualmachines' | count"
+vm_result_json=$(az graph query -q "$vm_query" --output json)
+vm_query_exit_code=$?
 
-# Loop through each subscription
-for subscription_id in $subscriptions; do
-    echo "Switching to subscription: $subscription_id"
-    az account set --subscription "$subscription_id"
-
-    # Count VMs in the current subscription
-    vm_count=$(az vm list --query "length(@)" -o tsv)
-    echo "VM instances in subscription '$subscription_id': $vm_count"
-
-    # Add to the total count
-    total_vm_count=$((total_vm_count + vm_count))
-
-    # Get the list of all AKS clusters in the subscription
-    clusters=$(az aks list --query "[].{name:name, resourceGroup:resourceGroup}" -o tsv)
-
-    if [ -z "$clusters" ]; then
-        echo "No AKS clusters found in the subscription."
-        exit 0
+if [ $vm_query_exit_code -ne 0 ]; then
+    echo "  Warning: Failed to query Azure Resource Graph for VMs (Exit Code: $vm_query_exit_code). Assuming 0 VMs."
+    total_vm_count=0
+else
+    # Extract count using jq
+    total_vm_count=$(echo "$vm_result_json" | jq '.count // 0')
+    if ! [[ "$total_vm_count" =~ ^[0-9]+$ ]]; then
+         echo "  Warning: Could not parse VM count from Resource Graph result. Assuming 0 VMs."
+         total_vm_count=0
     fi
+fi
+echo "Total VM Instances found: $total_vm_count"
 
-    # Loop through each cluster
-    while IFS=$'\t' read -r cluster_name resource_group; do
-        echo "Processing cluster: $cluster_name (Resource Group: $resource_group)"
 
-        # Get the current node count for the AKS cluster
-        node_count=$(az aks show --name "$cluster_name" --resource-group "$resource_group" \
-            --query "agentPoolProfiles[].count | sum(@)" -o tsv)
+# --- Count AKS Nodes using Azure Resource Graph ---
+echo "Querying Azure Resource Graph for AKS node count..."
+# Query for AKS clusters, expand agent pools, and sum node counts
+aks_query="Resources | where type =~ 'microsoft.containerservice/managedclusters' | project properties.agentPoolProfiles | mv-expand profile = properties_agentPoolProfiles | summarize sum(toint(profile.count))"
+aks_result_json=$(az graph query -q "$aks_query" --output json)
+aks_query_exit_code=$?
 
-        echo "  Cluster '$cluster_name' has $node_count nodes."
-        total_node_count=$((total_node_count + node_count))
-    done <<< "$clusters"
-
-done
-
+if [ $aks_query_exit_code -ne 0 ]; then
+    echo "  Warning: Failed to query Azure Resource Graph for AKS nodes (Exit Code: $aks_query_exit_code). Assuming 0 nodes."
+    total_node_count=0
+else
+    # Extract sum using jq - the field name is typically 'sum_' followed by the summarized field
+    total_node_count=$(echo "$aks_result_json" | jq '.data[0].sum_profile_count // 0')
+     if ! [[ "$total_node_count" =~ ^[0-9]+$ ]]; then
+         echo "  Warning: Could not parse AKS node count from Resource Graph result. Assuming 0 nodes."
+         total_node_count=0
+    fi
+fi
+echo "Total AKS container VMs (nodes) found: $total_node_count"
 
 
 echo "##########################################"
-echo "Prisma Cloud Azure inventory collection complete."
+echo "Prisma Cloud Azure inventory collection complete (using Azure Resource Graph)."
 echo ""
-echo "VM Summary all subscriptions:"
+echo "VM Summary (all accessible subscriptions):"
 echo "==============================="
 echo "VM Instances:      $total_vm_count"
 echo "AKS container VMs: $total_node_count"
