@@ -326,8 +326,9 @@ count_resources() {
                 fi
             done
         fi
-        echo "  EC2 instances: $ec2_count"
+        echo "  $(tput bold)$(tput setaf 2)VM Workloads: $ec2_count$(tput sgr0)"
         total_ec2_instances=$((total_ec2_instances + ec2_count))
+        total_ec2_workloads=$total_ec2_instances
 
         # Count EKS nodes
         if [[ "${REGION}" ]]; then
@@ -355,13 +356,179 @@ count_resources() {
                 total_nodes=$((total_nodes + node_count))
                 echo "  EKS cluster '$cluster' nodegroup $node_group nodes: $node_count"
                 total_eks_nodes=$((total_eks_nodes + node_count))
+                total_eks_workloads=$total_eks_nodes
+                echo "  $(tput bold)$(tput setaf 2)VM (Container) Workfloads: $total_eks_workloads$(tput sgr0)"
             done
         done
+
+        # Count Serverless Functions
+        echo ""
+        echo "  Counting active and inactive serverless functions in AWS..."
+
+        # Initialize counters
+        active_functions=0
+        inactive_functions=0
+
+        # Get a list of all Lambda function ARNs
+        # The --query argument filters the output to only the FunctionArn and flattens the list.
+        # The --output text argument formats the output as plain text, one ARN per line.
+        function_arns=$(aws lambda list-functions --query 'Functions[].FunctionArn' --output text)
+
+        # Check if any functions were found
+        if [ -z "$function_arns" ]; then
+        echo "  No serverless functions found in your AWS account."
+        else
+        
+            # Loop through each function ARN to get its state
+            for arn in $function_arns; do
+            # Extract the function name from the ARN for easier reading in output
+            function_name=$(echo "$arn" | awk -F':' '{print $NF}')
+
+            # Get the function configuration, specifically the State and LastUpdateStatus
+            # We use jq to parse the JSON output and extract the relevant fields.
+            # .Configuration.State will be "Active", "Inactive", "Pending" etc.
+            # .Configuration.LastUpdateStatus will be "Successful", "Failed" etc.
+            function_state_info=$(aws lambda get-function-configuration --function-name "$arn" --query '{State: State, LastUpdateStatus: LastUpdateStatus}' --output json)
+
+            # Parse the state and last update status using jq
+            state=$(echo "$function_state_info" | jq -r '.State')
+            last_update_status=$(echo "$function_state_info" | jq -r '.LastUpdateStatus')
+
+            #echo "Function: $function_name, State: $state, LastUpdateStatus: $last_update_status"
+
+            # Determine if the function is active or inactive based on its state and last update status
+            if [[ "$state" == "Active" && "$last_update_status" == "Successful" ]]; then
+                active_functions=$((active_functions + 1))
+            else
+                inactive_functions=$((inactive_functions + 1))
+            fi
+            done
+        fi
+
+        #echo ""
+        #echo "--- Summary ---"
+        echo "    Active Serverless Functions: $active_functions"
+        echo "    Inactive Serverless Functions: $inactive_functions"
+        #echo "-----------------"
+        serverless_workloads=$(( (active_functions+25-1)/25 ))
+        if (( $active_functions == 0 )); then 
+            serverless_workloads=0
+        fi
+        echo "  $(tput bold)$(tput setaf 2)Serverless Workloads: $serverless_workloads$(tput sgr0)"
+        echo ""
+
+        # Count CaaS
+        echo ""
+        echo "  Counting managed container resources in AWS..."
+
+        # Initialize counters
+        ecs_fargate_services=0
+        apprunner_services=0
+        total_managed_containers=0
+
+        # List all ECS clusters
+        # We'll then iterate through each cluster to find Fargate services.
+        ecs_clusters=$(aws ecs list-clusters --query 'clusterArns[]' --output text)
+
+        if [ -z "$ecs_clusters" ]; then
+        echo "    No ECS clusters found."
+        else
+        for cluster_arn in $ecs_clusters; do
+            cluster_name=$(echo "$cluster_arn" | awk -F'/' '{print $NF}')
+            echo "    Checking cluster: $cluster_name"
+
+            # List services within the cluster
+            # We need to describe each service to check its launch type (Fargate vs. EC2)
+            service_arns=$(aws ecs list-services --cluster "$cluster_arn" --query 'serviceArns[]' --output text)
+
+            if [ -z "$service_arns" ]; then
+            echo "      No services found in this cluster."
+            else
+            for service_arn in $service_arns; do
+                # Get service details to check launch type
+                service_details=$(aws ecs describe-services --cluster "$cluster_arn" --services "$service_arn" --query 'services[0].launchType' --output text)
+
+                if [ "$service_details" == "Fargate" ]; then
+                ecs_fargate_services=$((ecs_fargate_services + 1))
+                service_name=$(echo "$service_arn" | awk -F'/' '{print $NF}')
+                echo "    Found Fargate Service: $service_name"
+                fi
+            done
+            fi
+        done
+        fi
+
+        # List all App Runner services
+        apprunner_service_arns=$(aws apprunner list-services --query 'ServiceSummaryList[].ServiceArn' --output text)
+
+        if [ -z "$apprunner_service_arns" ]; then
+        echo "    No AWS App Runner services found."
+        else
+        for service_arn in $apprunner_service_arns; do
+            apprunner_services=$((apprunner_services + 1))
+            service_name=$(echo "$service_arn" | awk -F'/' '{print $NF}')
+            echo "    Found App Runner Service: $service_name"
+        done
+        fi
+
+        # echo "--- Summary of Managed Container Resources ---"
+        # echo "Amazon ECS Fargate Services: $ecs_fargate_services"
+        # echo "AWS App Runner Services: $apprunner_services"
+
+        total_managed_containers=$((ecs_fargate_services + apprunner_services))
+        caas_workloads=$[(total_managed_containers+10-1)/10]
+        if (( total_managed_containers=0 )); then 
+            caas_workloads=0
+        fi
+        echo "  $(tput bold)$(tput setaf 2)CaaS Workloads: $caas_workloads$(tput sgr0)"
+        echo ""
+
+        # Count Container Images in Registries
+        echo "  Counting container images in all registries..."
+
+        #echo "Listing container registries (ECR Repositories) and counting images in your AWS account..."
+
+        # Initialize a counter for the total number of images across all repositories
+        total_images_across_all_registries=0
+
+        # List all ECR repositories
+        # The --query 'repositories[].repositoryName' extracts only the names of the repositories
+        # The --output text formats the output as plain text, one name per line
+        repository_names=$(aws ecr describe-repositories --query 'repositories[].repositoryName' --output text)
+
+        # Check if any repositories were found
+        if [ -z "$repository_names" ]; then
+        echo "    No ECR repositories found in your AWS account."
+        return 0
+        fi
+
+        # Loop through each repository name
+        for repo_name in $repository_names; do
+        #echo "Repository: $repo_name"
+
+        # Count images in the current repository
+        # We use describe-images to get a list of image digests (unique identifiers for images).
+        # We then use wc -l to count the number of lines, which corresponds to the number of images.
+        # The || true part prevents the script from exiting if a repository has no images and describe-images returns an empty list.
+        image_count=$(aws ecr describe-images --repository-name "$repo_name" --query 'imageDetails[].imageDigest' --output text | wc -l)
+
+        # Add the current repository's image count to the total
+        total_images_across_all_registries=$((total_images_across_all_registries + image_count))
+        done
+
+        # echo "  Total Images: $image_count"
+        # echo "-----------------------------------------"
+
+        echo ""
+        echo "  Total ECR Repositories Found: $(echo "$repository_names" | wc -l)"
+        echo "  Total Images Across All Registries: $total_images_across_all_registries"
     fi
 
     if [ "$DSPM_MODE" == true ]; then
         echo "Counting DSPM Security resources in account: $account_id"
+        echo ""
         # Count S3 buckets
+        echo "  Counting up bucket workloads..."
         if [[ "${REGION}" ]]; then
             s3_count=$(aws s3api list-buckets --region $REGION --query "Buckets[*].Name" --output text | wc -w)
             check_error $? "Failed to list S3 buckets in region $REGION for account $account_id."
@@ -369,9 +536,16 @@ count_resources() {
             s3_count=$(aws s3api list-buckets --query "Buckets[*].Name" --output text | wc -w)
             check_error $? "Failed to list S3 buckets (all regions) for account $account_id."
         fi   
-        echo "  S3 buckets: $s3_count"
+        echo "    S3 buckets: $s3_count"
         total_s3_buckets=$((total_s3_buckets + s3_count))
+        s3_workloads=$[(total_s3_buckets+10-1)/10]
+        if (( total_s3_buckets=0 )); then
+            s3_workloads=0
+        fi
+        echo "  $(tput bold)$(tput setaf 2)S3 workloads: $s3_workloads$(tput sgr0)"
+        echo ""
 
+        echo "  Counting up PaaS workloads..."
         # Count EFS file systems
         if [[ "${REGION}" ]]; then
             efs_count=$(aws efs describe-file-systems --region $REGION --query "FileSystems[*].FileSystemId" --output text | wc -w)
@@ -380,7 +554,7 @@ count_resources() {
             efs_count=$(aws efs describe-file-systems --query "FileSystems[*].FileSystemId" --output text | wc -w)
             check_error $? "Failed to describe EFS file systems (all regions) for account $account_id."
         fi  
-        echo "  EFS file systems: $efs_count"
+        echo "    EFS file systems: $efs_count"
         total_efs=$((total_efs + efs_count))
 
         # Count Aurora clusters
@@ -391,7 +565,7 @@ count_resources() {
             aurora_count=$(aws rds describe-db-clusters --query "DBClusters[?Engine=='aurora'].DBClusterIdentifier" --output text | wc -w)
             check_error $? "Failed to describe Aurora clusters (all regions) for account $account_id."
         fi         
-        echo "  Aurora clusters: $aurora_count"
+        echo "    Aurora clusters: $aurora_count"
         total_aurora=$((total_aurora + aurora_count))
 
         # Count RDS instances
@@ -402,7 +576,7 @@ count_resources() {
             rds_count=$(aws rds describe-db-instances --query "DBInstances[?Engine=='mysql' || Engine=='mariadb' || Engine=='postgres'].DBInstanceIdentifier" --output text | wc -w)
             check_error $? "Failed to describe RDS instances (all regions) for account $account_id."
         fi   
-        echo "  RDS instances (MySQL, MariaDB, PostgreSQL): $rds_count"
+        echo "    RDS instances (MySQL, MariaDB, PostgreSQL): $rds_count"
         total_rds=$((total_rds + rds_count))
 
         # Count DynamoDB tables
@@ -413,7 +587,7 @@ count_resources() {
             dynamodb_count=$(aws dynamodb list-tables --query "TableNames" --output text | wc -w)
             check_error $? "Failed to list DynamoDB tables (all regions) for account $account_id."
         fi 
-        echo "  DynamoDB tables: $dynamodb_count"
+        echo "    DynamoDB tables: $dynamodb_count"
         total_dynamodb=$((total_dynamodb + dynamodb_count))
 
         # Count Redshift clusters
@@ -424,8 +598,16 @@ count_resources() {
             redshift_count=$(aws redshift describe-clusters --query "Clusters[*].ClusterIdentifier" --output text | wc -w)
             check_error $? "Failed to describe Redshift clusters (all regions) for account $account_id."
         fi 
-        echo "  Redshift clusters: $redshift_count"
+        echo "    Redshift clusters: $redshift_count"
         total_redshift=$((total_redshift + redshift_count))
+
+        paas_workloads=$[(total_rds+total_aurora+total_dynamodb+total_redshift+2-1)/2]
+        if [[ $total_rds+$total_aurora+$total_dynamodb+$total_redshift=0 ]]; then
+            paas_workloads=0
+        fi
+        echo "  $(tput bold)$(tput setaf 2)PaaS Workloads: $paas_workloads$(tput sgr0)"
+        echo ""
+
  
    	if [ "$SSM_MODE" == true ]; then
     	check_running_databases
