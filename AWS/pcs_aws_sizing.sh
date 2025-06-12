@@ -60,21 +60,21 @@ function __stopspin {
 	echo -en "\033[2K\r"
 }
 
-
-echo ''
-echo '  ___     _                  ___ _             _  '
-echo ' | _ \_ _(_)____ __  __ _   / __| |___ _  _ __| | '
-echo ' |  _/ '\''_| (_-< '\''  \/ _` | | (__| / _ \ || / _` | '
-echo ' |_| |_| |_/__/_|_|_\__,_|  \___|_\___/\_,_\__,_| '
-echo ''                                                 
-
+echo "   ___           _                ___ _                 _ ";
+echo "  / __\___  _ __| |_ _____  __   / __\ | ___  _   _  __| |";
+echo " / /  / _ \| '__| __/ _ \ \/ /  / /  | |/ _ \| | | |/ _\` |";
+echo "/ /__| (_) | |  | ||  __/>  <  / /___| | (_) | |_| | (_| |";
+echo "\____/\___/|_|   \__\___/_/\_\ \____/|_|\___/ \__,_|\__,_|";
+echo "                                                          ";
+echo "                                                          ";
 # Ensure AWS CLI is configured
 aws sts get-caller-identity > /dev/null 2>&1
 check_error $? "AWS CLI not configured or credentials invalid. Please run 'aws configure'."
 
 # Initialize options
 ORG_MODE=false
-DSPM_MODE=false
+DSPM_MODE=true
+#DSPM_MODE=false #toggled to count all resources as workloads
 ROLE="OrganizationAccountAccessRole"
 REGION=""
 STATE="running"
@@ -121,7 +121,8 @@ if [ "$ORG_MODE" == true ]; then
   echo "Role to assume: $ROLE"
 fi
 if [ "$DSPM_MODE" == true ]; then
-  echo "DSPM mode active"
+#  echo "DSPM mode active"
+echo "$(tput bold)$(tput setaf 2)Counting Workloads$(tput sgr0)"
 fi
 
 # Initialize counters
@@ -303,7 +304,8 @@ count_resources() {
     fi
 
 
-    if [ "$DSPM_MODE" == false ]; then
+    if [ "$DSPM_MODE" == true ]; then
+    #if [ "$DSPM_MODE" == false ]; then #toggled to count all workloads
         echo "Counting Cloud Security resources in account: $account_id"
        
         # Count EC2 instances
@@ -499,7 +501,6 @@ count_resources() {
         # Check if any repositories were found
         if [ -z "$repository_names" ]; then
         echo "    No ECR repositories found in your AWS account."
-        return 0
         fi
 
         # Loop through each repository name
@@ -525,8 +526,8 @@ count_resources() {
     fi
 
     if [ "$DSPM_MODE" == true ]; then
-        echo "Counting DSPM Security resources in account: $account_id"
-        echo ""
+    #    echo "Counting DSPM Security resources in account: $account_id"
+    #    echo ""
         # Count S3 buckets
         echo "  Counting up bucket workloads..."
         if [[ "${REGION}" ]]; then
