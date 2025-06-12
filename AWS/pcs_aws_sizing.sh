@@ -136,6 +136,18 @@ total_dynamodb=0
 total_redshift=0
 total_ec2_db=0
 ec2_db_count=0
+paas_workloads=0
+total_paas_workloads=0
+caas_workloads=0
+total_caas_workloads=0
+container_image_workloads=0
+total_container_image_workloads=0
+serverless_workloads=0
+total_serverless_workloads=0
+eks_workloads=0
+total_eks_workloads=0
+s3_workloads=0
+total_s3_workloads=0
 
 # Functions
 check_running_databases() {
@@ -358,8 +370,9 @@ count_resources() {
                 total_nodes=$((total_nodes + node_count))
                 echo "  EKS cluster '$cluster' nodegroup $node_group nodes: $node_count"
                 total_eks_nodes=$((total_eks_nodes + node_count))
-                total_eks_workloads=$total_eks_nodes
-                echo "  $(tput bold)$(tput setaf 2)VM (Container) Workfloads: $total_eks_workloads$(tput sgr0)"
+                eks_workloads=$total_nodes
+                total_eks_workloads=$((total_eks_nodes + eks_workloads))
+                echo "  $(tput bold)$(tput setaf 2)VM (Container) Workfloads: $eks_workloads$(tput sgr0)"
             done
         done
 
@@ -416,6 +429,7 @@ count_resources() {
         if (( $active_functions == 0 )); then 
             serverless_workloads=0
         fi
+        total_serverless_workloads=$((total_serverless_workloads + serverless_workloads))
         echo "  $(tput bold)$(tput setaf 2)Serverless Workloads: $serverless_workloads$(tput sgr0)"
         echo ""
 
@@ -482,6 +496,7 @@ count_resources() {
         if (( total_managed_containers=0 )); then 
             caas_workloads=0
         fi
+        total_caas_workloads=$((total_caas_workloads + caas_workloads))
         echo "  $(tput bold)$(tput setaf 2)CaaS Workloads: $caas_workloads$(tput sgr0)"
         echo ""
 
@@ -515,7 +530,9 @@ count_resources() {
 
         # Add the current repository's image count to the total
         total_images_across_all_registries=$((total_images_across_all_registries + image_count))
-        done
+        container_image_workload=$[(image_count-((ec2_count+total_eks_nodes)*10))]
+        total_container_image_workload=$((total_container_image_workload + container_image_workload))
+            done
 
         # echo "  Total Images: $image_count"
         # echo "-----------------------------------------"
@@ -543,6 +560,7 @@ count_resources() {
         if (( total_s3_buckets=0 )); then
             s3_workloads=0
         fi
+        total_s3_workloads=$((total_s3_workloads + s3_workloads))
         echo "  $(tput bold)$(tput setaf 2)S3 workloads: $s3_workloads$(tput sgr0)"
         echo ""
 
@@ -603,6 +621,7 @@ count_resources() {
         total_redshift=$((total_redshift + redshift_count))
 
         paas_workloads=$[(total_rds+total_aurora+total_dynamodb+total_redshift+2-1)/2]
+        total_paas_workloads=$((total_paas_workloads + paas_workloads))
         if [[ $total_rds+$total_aurora+$total_dynamodb+$total_redshift=0 ]]; then
             paas_workloads=0
         fi
@@ -648,21 +667,33 @@ else
     count_resources "$current_account"
 fi
 
-if [ "$ORG_MODE" == true ] && [ "$DSPM_MODE" == false ]; then
     echo ""
-    echo "** TOTAL COUNTS **"
-    echo "  EC2 instances: $total_ec2_instances"
-    echo "  EKS nodes: $total_eks_nodes"
-fi
+    echo "  WORKLOAD COUNTS"
+    echo "  VM workloads: $total_ec2_instances"
+    echo "  VM (container) workloads: $total_eks_workloads"
+    echo "  Serverless workloads: $total_serverless_workloads"
+    echo "  S3 workloads: $total_s3_workloads"
+    echo "  CaaS workloads: $total_caas_workloads"
+    echo "  Container Image workloads: $total_container_image_workloads"
+    echo "  PaaS workloads: $total_paas_workloads"  
+    echo ""
+    echo "$(tput bold)$(tput setaf 2)** SUM TOTAL WORKLOADS: $((total_ec2_instances+total_eks_workloads+total_serverless_workloads+total_s3_workloads+total_caas_workloads+total_container_image_workloads+total_paas_workloads))$(tput sgr0) **"
 
-if [ "$ORG_MODE" == true ] && [ "$DSPM_MODE" == true ]; then
-    echo ""
-    echo "** TOTAL DSPM COUNTS **"
-    echo "  S3 buckets: $total_s3_buckets"
-    echo "  EFS file systems: $total_efs"
-    echo "  Aurora clusters: $total_aurora"
-    echo "  RDS instances: $total_rds"
-    echo "  DynamoDB tables: $total_dynamodb"
-    echo "  Redshift clusters: $total_redshift"
-    echo "  EC2 DBs: $total_ec2_db"
-fi
+# if [ "$ORG_MODE" == true ] && [ "$DSPM_MODE" == false ]; then
+#     echo ""
+#     echo "** TOTAL COUNTS **"
+#     echo "  EC2 instances: $total_ec2_instances"
+#     echo "  EKS nodes: $total_eks_nodes"
+# fi
+
+# if [ "$ORG_MODE" == true ] && [ "$DSPM_MODE" == true ]; then
+#     echo ""
+#     echo "** TOTAL DSPM COUNTS **"
+#     echo "  S3 buckets: $total_s3_buckets"
+#     echo "  EFS file systems: $total_efs"
+#     echo "  Aurora clusters: $total_aurora"
+#     echo "  RDS instances: $total_rds"
+#     echo "  DynamoDB tables: $total_dynamodb"
+#     echo "  Redshift clusters: $total_redshift"
+#     echo "  EC2 DBs: $total_ec2_db"
+# fi
